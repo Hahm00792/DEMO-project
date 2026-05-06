@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>영어 내신 대비 퀴즈</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Noto Sans KR', sans-serif; background: #f5f5f5; color: #222; min-height: 100vh; }
+  .container { max-width: 800px; margin: 0 auto; padding: 2rem 1rem; }
+  h1 { font-size: 1.6rem; font-weight: 700; margin-bottom: 0.5rem; }
+  h2 { font-size: 1.2rem; font-weight: 600; margin-bottom: 1rem; }
+  .card { background: #fff; border-radius: 12px; padding: 2rem; margin-bottom: 1.5rem; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  input[type="text"] { width: 100%; padding: 0.75rem 1rem; border: 1.5px solid #ddd; border-radius: 8px; font-size: 1rem; margin-bottom: 1rem; }
+  input[type="text"]:focus { outline: none; border-color: #4f46e5; }
+  button { padding: 0.75rem 1.5rem; border-radius: 8px; border: none; font-size: 1rem; cursor: pointer; transition: background 0.2s; }
+  .btn-primary { background: #4f46e5; color: #fff; width: 100%; }
+  .btn-primary:hover { background: #4338ca; }
+  .btn-primary:disabled { background: #a5b4fc; cursor: not-allowed; }
+  .btn-secondary { background: #e5e7eb; color: #374151; }
+  .btn-secondary:hover { background: #d1d5db; }
+  .btn-sm { padding: 0.4rem 1rem; font-size: 0.9rem; }
+  .tag { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; background: #ede9fe; color: #4f46e5; margin-bottom: 0.75rem; }
+  .passage-box { background: #f9fafb; border-left: 4px solid #4f46e5; padding: 1rem 1.25rem; border-radius: 0 8px 8px 0; font-size: 0.97rem; line-height: 1.8; margin-bottom: 1.5rem; color: #374151; }
+  .options { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1.2rem; }
+  .option { padding: 0.75rem 1rem; border: 1.5px solid #e5e7eb; border-radius: 8px; cursor: pointer; font-size: 0.97rem; transition: all 0.15s; background: #fff; text-align: left; }
+  .option:hover { border-color: #4f46e5; background: #ede9fe; }
+  .option.selected { border-color: #4f46e5; background: #ede9fe; }
+  .option.correct { border-color: #16a34a; background: #dcfce7; color: #15803d; }
+  .option.wrong { border-color: #dc2626; background: #fee2e2; color: #b91c1c; }
+  .option.show-correct { border-color: #16a34a; background: #dcfce7; color: #15803d; }
+  .hint-box { background: #fefce8; border: 1px solid #fde68a; border-radius: 8px; padding: 0.9rem 1.1rem; font-size: 0.93rem; color: #92400e; margin-top: 0.8rem; }
+  .progress-bar { background: #e5e7eb; border-radius: 99px; height: 8px; margin-bottom: 0.5rem; }
+  .progress-fill { background: #4f46e5; border-radius: 99px; height: 8px; transition: width 0.3s; }
+  .progress-text { font-size: 0.85rem; color: #6b7280; margin-bottom: 1.5rem; }
+  .subjective textarea { width: 100%; padding: 0.75rem; border: 1.5px solid #ddd; border-radius: 8px; font-size: 0.97rem; resize: vertical; min-height: 80px; }
+  .subjective textarea:focus { outline: none; border-color: #4f46e5; }
+  .result-summary { text-align: center; padding: 1.5rem 0; }
+  .score-big { font-size: 3rem; font-weight: 700; color: #4f46e5; }
+  .score-label { font-size: 1rem; color: #6b7280; margin-bottom: 1.5rem; }
+  .wrong-list-title { font-size: 1rem; font-weight: 600; margin: 1.5rem 0 0.8rem; color: #374151; }
+  .loading { text-align: center; padding: 3rem; color: #6b7280; }
+  .spinner { display: inline-block; width: 32px; height: 32px; border: 3px solid #e5e7eb; border-top-color: #4f46e5; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 1rem; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #screen-login, #screen-quiz, #screen-result, #screen-retry { display: none; }
+  .nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+  .student-name { font-size: 0.95rem; color: #6b7280; }
+  .btn-row { display: flex; gap: 0.75rem; margin-top: 1rem; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- 로그인 화면 -->
+  <div id="screen-login">
+    <div class="card" style="max-width:420px;margin:4rem auto;">
+      <h1 style="margin-bottom:0.3rem;">📖 영어 내신 퀴즈</h1>
+      <p style="color:#6b7280;margin-bottom:1.5rem;font-size:0.95rem;">이름을 입력하고 시작하세요</p>
+      <input type="text" id="input-name" placeholder="이름 입력 (예: 홍길동)" />
+      <button class="btn-primary" onclick="startSession()">시작하기</button>
+      <p id="login-error" style="color:#dc2626;font-size:0.9rem;margin-top:0.75rem;"></p>
+    </div>
+  </div>
+
+  <!-- 퀴즈 화면 -->
+  <div id="screen-quiz">
+    <div class="nav">
+      <div>
+        <div style="font-size:1.1rem;font-weight:700;">📖 영어 내신 퀴즈</div>
+        <div class="student-name" id="quiz-student-name"></div>
+      </div>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+    <div class="progress-text" id="progress-text"></div>
+    <div id="question-area"></div>
+    <div class="btn-row">
+      <button class="btn-primary" id="btn-submit" onclick="submitAnswer()" style="flex:1;">답 제출</button>
+      <button class="btn-secondary btn-sm" id="btn-next" onclick="nextQuestion()" style="display:none;">다음 문제 →</button>
+    </div>
+  </div>
+
+  <!-- 결과 화면 -->
+  <div id="screen-result">
+    <div class="card">
+      <div class="result-summary">
+        <div class="score-big" id="result-score"></div>
+        <div class="score-label" id="result-label"></div>
+      </div>
+      <div id="wrong-section"></div>
+      <div class="btn-row" style="margin-top:1.5rem;">
+        <button class="btn-primary" onclick="retryWrong()" id="btn-retry" style="flex:1;">틀린 문제 다시 풀기</button>
+        <button class="btn-secondary" onclick="goHome()" style="flex:1;">처음으로</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 재도전 화면 -->
+  <div id="screen-retry">
+    <div class="nav">
+      <div style="font-size:1.1rem;font-weight:700;">🔁 틀린 문제 재도전</div>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="retry-progress-fill"></div></div>
+    <div class="progress-text" id="retry-progress-text"></div>
+    <div id="retry-question-area"></div>
+    <div class="btn-row">
+      <button class="btn-primary" id="btn-retry-submit" onclick="submitRetryAnswer()" style="flex:1;">답 제출</button>
+      <button class="btn-secondary btn-sm" id="btn-retry-next" onclick="nextRetryQuestion()" style="display:none;">다음 문제 →</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const SUPABASE_URL = 'https://mvuflgyyckqzuanovbfo.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_SgCGHt8FxYNuIBMC_1TLjg_oYzz1o3F';
+const GEMINI_KEY = 'AIzaSyDChr2jy9WJMpKaosnTNfTP_Sg3nfzkxaM';
+
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const PASSAGE = `As Kuhn proposed, our propositions about the world are embedded within paradigms, roughly a network of interrelated commitments to a particular theory, a conception of a subject matter, and methodological practices. Thus, when scientists undertake research, they do so from within a specific paradigm. Even the most exacting measurements are only sensible from within that paradigm. For example, a look into a microscope tells you nothing unless you are already informed about the nature of the instrument and what you are supposed to be looking at. Thus, what we call major progress in science is not a movement from a less to a more accurate paradigm. Rather, it is a horizontal shift from one 'way of seeing the world' to another. For Kuhn, 'the scientist with a new paradigm sees differently from the way he had seen before.'`;
+
+let studentId = null;
+let studentName = '';
+let sessionId = null;
+let questions = [];
+let currentQ = 0;
+let answers = [];
+let wrongQuestions = [];
+let retryQuestions = [];
+let retryIndex = 0;
+let retryAnswers = [];
+
+function show(screen) {
+  ['login','quiz','result','retry'].forEach(s => {
+    document.getElementById('screen-'+s).style.display = 'none';
+  });
+  document.getElementById('screen-'+screen).style.display = 'block';
+}
+
+async function startSession() {
+  const name = document.getElementById('input-name').value.trim();
+  if (!name) { document.getElementById('login-error').textContent = '이름을 입력해주세요.'; return; }
+  
+  const btn = document.querySelector('#screen-login .btn-primary');
+  btn.disabled = true; btn.textContent = '불러오는 중...';
+
+  let { data: existing } = await db.from('students').select('id').eq('name', name).single();
+  if (existing) {
+    studentId = existing.id;
+  } else {
+    const code = name + '_' + Date.now();
+    let { data: newStudent } = await db.from('students').insert({ name, student_code: code }).select('id').single();
+    studentId = newStudent.id;
+  }
+  studentName = name;
+
+  const { data: sess } = await db.from('quiz_sessions').insert({ student_id: studentId, total_questions: 5 }).select('id').single();
+  sessionId = sess.id;
+
+  document.getElementById('quiz-student-name').textContent = name + ' 님';
+  show('quiz');
+  await loadQuestions();
+}
+
+async function loadQuestions() {
+  document.getElementById('question-area').innerHTML = '<div class="loading"><div class="spinner"></div><div>AI가 문제를 생성하고 있어요...</div></div>';
+  document.getElementById('btn-submit').style.display = 'none';
+
+  const prompt = `You are a Korean high school English exam question generator (수능 유형).
+
+Given this English passage, generate exactly 5 questions in the following types (one each):
+1. 함의추론 (implication/inference) - 5지선다 객관식
+2. 빈칸추론 (blank inference) - 5지선다 객관식  
+3. 순서추론 (order of paragraphs) - 5지선다 객관식
+4. 어휘 (vocabulary - choose the word that is inappropriate) - 5지선다 객관식
+5. 요약문 완성 (summary completion) - 단답형 주관식 (short answer, fill in ONE word)
+
+PASSAGE:
+${PASSAGE}
+
+Return ONLY a JSON array (no markdown, no explanation) with this exact structure:
+[
+  {
+    "type": "함의추론",
+    "question": "question text here",
+    "options": ["① option1", "② option2", "③ option3", "④ option4", "⑤ option5"],
+    "answer": 1,
+    "hint": "hint text in Korean (do not reveal answer directly)",
+    "isSubjective": false
+  },
+  ...
+  {
+    "type": "요약문 완성",
+    "question": "question with blank: The text argues that scientific progress is a ___ shift rather than a movement toward greater accuracy.",
+    "options": [],
+    "answer": "horizontal",
+    "hint": "hint in Korean",
+    "isSubjective": true
+  }
+]
+
+For objective questions, answer is the index (1-5). For subjective, answer is the word string.
+Write questions and hints in Korean, but keep passage quotes and options in English where appropriate.`;
+
+  try {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+    });
+    const data = await res.json();
+    let raw = data.candidates[0].content.parts[0].text;
+    raw = raw.replace(/```json|```/g, '').trim();
+    questions = JSON.parse(raw);
+    answers = new Array(questions.length).fill(null);
+    currentQ = 0;
+    renderQuestion();
+  } catch(e) {
+    document.getElementById('question-area').innerHTML = '<div class="loading" style="color:#dc2626;">문제 생성 중 오류가 발생했어요. 새로고침 해주세요.</div>';
+    console.error(e);
+  }
+}
+
+function renderQuestion(isRetry=false) {
+  const area = isRetry ? document.getElementById('retry-question-area') : document.getElementById('question-area');
+  const q = isRetry ? retryQuestions[retryIndex] : questions[currentQ];
+  const idx = isRetry ? retryIndex : currentQ;
+  const total = isRetry ? retryQuestions.length : questions.length;
+
+  const fillId = isRetry ? 'retry-progress-fill' : 'progress-fill';
+  const textId = isRetry ? 'retry-progress-text' : 'progress-text';
+  document.getElementById(fillId).style.width = ((idx/total)*100) + '%';
+  document.getElementById(textId).textContent = `${idx+1} / ${total} 문제`;
+
+  let html = `<div class="card">
+    <div class="tag">${q.type}</div>
+    <div class="passage-box">${PASSAGE}</div>
+    <p style="font-size:1rem;font-weight:600;margin-bottom:1rem;line-height:1.6;">${q.question}</p>`;
+
+  if (!q.isSubjective) {
+    html += `<div class="options" id="options-list">`;
+    q.options.forEach((opt, i) => {
+      html += `<button class="option" onclick="selectOption(${i+1}, ${isRetry})">${opt}</button>`;
+    });
+    html += `</div>`;
+  } else {
+    html += `<div class="subjective"><textarea id="subjective-input" placeholder="답을 영어로 입력하세요"></textarea></div>`;
+  }
+  html += `<div id="feedback-area"></div></div>`;
+  area.innerHTML = html;
+
+  const submitBtn = isRetry ? document.getElementById('btn-retry-submit') : document.getElementById('btn-submit');
+  const nextBtn = isRetry ? document.getElementById('btn-retry-next') : document.getElementById('btn-next');
+  submitBtn.style.display = 'block';
+  nextBtn.style.display = 'none';
+}
+
+let selectedOption = null;
+function selectOption(val, isRetry=false) {
+  selectedOption = val;
+  document.querySelectorAll('.option').forEach((el, i) => {
+    el.classList.toggle('selected', i+1 === val);
+  });
+}
+
+function submitAnswer() {
+  const q = questions[currentQ];
+  let userAnswer = q.isSubjective ? document.getElementById('subjective-input').value.trim() : selectedOption;
+  if (!userAnswer) { alert('답을 선택하거나 입력해주세요.'); return; }
+
+  answers[currentQ] = userAnswer;
+  let isCorrect = false;
+
+  if (!q.isSubjective) {
+    isCorrect = userAnswer === q.answer;
+    const opts = document.querySelectorAll('.option');
+    opts.forEach((el, i) => {
+      if (i+1 === q.answer) el.classList.add('show-correct');
+      else if (i+1 === userAnswer && !isCorrect) el.classList.add('wrong');
+    });
+  } else {
+    isCorrect = userAnswer.toLowerCase().trim() === q.answer.toLowerCase().trim();
+    const ta = document.getElementById('subjective-input');
+    ta.style.borderColor = isCorrect ? '#16a34a' : '#dc2626';
+    ta.style.background = isCorrect ? '#dcfce7' : '#fee2e2';
+    const fb = document.getElementById('feedback-area');
+    fb.innerHTML = isCorrect
+      ? `<p style="color:#15803d;font-weight:600;margin-top:0.75rem;">✅ 정답입니다!</p>`
+      : `<p style="color:#b91c1c;font-weight:600;margin-top:0.75rem;">❌ 오답 — 정답: <strong>${q.answer}</strong></p>`;
+  }
+
+  if (!isCorrect) {
+    const fb = document.getElementById('feedback-area');
+    fb.innerHTML += `<div class="hint-box">💡 힌트: ${q.hint}</div>`;
+    wrongQuestions.push({...q, userAnswer});
+  }
+
+  saveAnswer(isCorrect, q.type);
+  selectedOption = null;
+  document.getElementById('btn-submit').style.display = 'none';
+  document.getElementById('btn-next').style.display = 'block';
+
+  if (currentQ === questions.length - 1) {
+    document.getElementById('btn-next').textContent = '결과 보기 →';
+  }
+}
+
+async function saveAnswer(isCorrect, qType) {
+  await db.from('quiz_answers').insert({
+    session_id: sessionId,
+    question_index: currentQ,
+    question_type: qType,
+    is_correct: isCorrect
+  });
+}
+
+function nextQuestion() {
+  currentQ++;
+  if (currentQ >= questions.length) {
+    showResult();
+  } else {
+    renderQuestion();
+    document.getElementById('btn-next').style.display = 'none';
+    document.getElementById('btn-submit').style.display = 'block';
+  }
+}
+
+async function showResult() {
+  const correct = answers.filter((a, i) => {
+    const q = questions[i];
+    if (q.isSubjective) return a && a.toLowerCase().trim() === q.answer.toLowerCase().trim();
+    return a === q.answer;
+  }).length;
+
+  await db.from('quiz_sessions').update({
+    completed_at: new Date().toISOString(),
+    total_score: correct
+  }).eq('id', sessionId);
+
+  document.getElementById('result-score').textContent = `${correct} / ${questions.length}`;
+  document.getElementById('result-label').textContent = `${studentName} 님의 점수`;
+
+  let wrongHtml = '';
+  if (wrongQuestions.length > 0) {
+    wrongHtml = `<p class="wrong-list-title">❌ 틀린 문제 (${wrongQuestions.length}개)</p>`;
+    wrongQuestions.forEach((q, i) => {
+      wrongHtml += `<div style="padding:0.6rem 0;border-bottom:1px solid #f3f4f6;font-size:0.93rem;color:#374151;">${i+1}. [${q.type}] ${q.question.slice(0,60)}...</div>`;
+    });
+  } else {
+    wrongHtml = `<p style="text-align:center;color:#16a34a;font-weight:600;margin-top:1rem;">🎉 모두 정답입니다!</p>`;
+  }
+  document.getElementById('wrong-section').innerHTML = wrongHtml;
+  document.getElementById('btn-retry').style.display = wrongQuestions.length > 0 ? 'block' : 'none';
+  show('result');
+}
+
+function retryWrong() {
+  retryQuestions = [...wrongQuestions];
+  retryIndex = 0;
+  retryAnswers = new Array(retryQuestions.length).fill(null);
+  show('retry');
+  renderQuestion(true);
+}
+
+function submitRetryAnswer() {
+  const q = retryQuestions[retryIndex];
+  let userAnswer = q.isSubjective ? document.getElementById('subjective-input').value.trim() : selectedOption;
+  if (!userAnswer) { alert('답을 선택하거나 입력해주세요.'); return; }
+
+  retryAnswers[retryIndex] = userAnswer;
+  let isCorrect = false;
+
+  if (!q.isSubjective) {
+    isCorrect = userAnswer === q.answer;
+    const opts = document.querySelectorAll('.option');
+    opts.forEach((el, i) => {
+      if (i+1 === q.answer) el.classList.add('show-correct');
+      else if (i+1 === userAnswer && !isCorrect) el.classList.add('wrong');
+    });
+  } else {
+    isCorrect = userAnswer.toLowerCase().trim() === q.answer.toLowerCase().trim();
+    const ta = document.getElementById('subjective-input');
+    ta.style.borderColor = isCorrect ? '#16a34a' : '#dc2626';
+    ta.style.background = isCorrect ? '#dcfce7' : '#fee2e2';
+    const fb = document.getElementById('feedback-area');
+    fb.innerHTML = isCorrect
+      ? `<p style="color:#15803d;font-weight:600;margin-top:0.75rem;">✅ 정답입니다!</p>`
+      : `<p style="color:#b91c1c;font-weight:600;margin-top:0.75rem;">❌ 오답 — 정답: <strong>${q.answer}</strong></p>`;
+  }
+
+  if (!isCorrect) {
+    const fb = document.getElementById('feedback-area');
+    fb.innerHTML += `<div class="hint-box">💡 힌트: ${q.hint}</div>`;
+  }
+
+  selectedOption = null;
+  document.getElementById('btn-retry-submit').style.display = 'none';
+  document.getElementById('btn-retry-next').style.display = 'block';
+  if (retryIndex === retryQuestions.length - 1) {
+    document.getElementById('btn-retry-next').textContent = '처음으로 →';
+  }
+}
+
+function nextRetryQuestion() {
+  retryIndex++;
+  if (retryIndex >= retryQuestions.length) {
+    goHome();
+  } else {
+    renderQuestion(true);
+    document.getElementById('btn-retry-next').style.display = 'none';
+    document.getElementById('btn-retry-submit').style.display = 'block';
+  }
+}
+
+function goHome() {
+  studentId = null; studentName = ''; sessionId = null;
+  questions = []; currentQ = 0; answers = []; wrongQuestions = [];
+  document.getElementById('input-name').value = '';
+  document.getElementById('login-error').textContent = '';
+  show('login');
+}
+
+window.onload = () => show('login');
+</script>
+</body>
+</html>
